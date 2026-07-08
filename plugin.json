@@ -1,0 +1,18 @@
+{
+  "InternalName": "RotationCoach",
+  "Name": "旋转教练",
+  "Description": "实时分析你实际按下的技能序列，指出发呆、卡手、GCD 节奏问题，帮助你打磨手法。",
+  "Punchline": "旋转教练",
+  "Author": "斯温",
+  "Version": "1.0.0.0",
+  "DalamudApiLevel": 15,
+  "Tags": [
+    "combat",
+    "rotation",
+    "coach",
+    "gcd",
+    "stats"
+  ],
+  "Category": "Damage",
+  "Changelog": "v1.0.0.0：首发——钩取 ActionEffectHandler.Receive 采集你实际按下的技能序列，分析 APM / GCD 节奏 / 发呆段 / 疑似卡手，实时与历史双模式，附完整出手序列与技能中文名。GCD 判定为启发式(动画锁≥1.2s)。"
+}
