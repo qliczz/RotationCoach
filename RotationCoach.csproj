@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <!-- Project settings -->
+  <PropertyGroup>
+    <Name>旋转教练</Name>
+    <Version>1.0.0.0</Version>
+    <Author>斯温</Author>
+    <RepoUrl>https://github.com/qliczz/RotationCoach</RepoUrl>
+    <Punchline>旋转教练</Punchline>
+    <Description>实时分析你实际按下的技能序列，指出发呆、卡手、GCD 节奏问题，帮助你打磨手法。</Description>
+    <LoadRequiredState>1</LoadRequiredState>
+    <CanUnloadAsync>true</CanUnloadAsync>
+  </PropertyGroup>
+
+  <!-- Build settings -->
+  <PropertyGroup>
+    <OutputPath>..\bin\</OutputPath>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Use Dalamud's bundled FFXIVClientStructs (no submodule needed) -->
+  <PropertyGroup>
+    <Use_Dalamud_FFXIVClientStructs>true</Use_Dalamud_FFXIVClientStructs>
+  </PropertyGroup>
+</Project>
