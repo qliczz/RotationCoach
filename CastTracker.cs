@@ -182,7 +182,7 @@ public unsafe class CastTracker : IDisposable
     {
         try
         {
-            if (this.diagCount < 5)
+            if (header != null && this.diagCount < 5)
             {
                 this.diagCount++;
                 this.log.Info($"[旋转教练][诊断] Receive #{this.diagCount} caster={casterEntityId} action={header->ActionId}");
@@ -190,7 +190,7 @@ public unsafe class CastTracker : IDisposable
             if (this.IsTrackingEnabled && header != null && this.current != null)
             {
                 var local = this.objects.LocalPlayer;
-                if (local != null && casterEntityId == local.EntityId)
+                if (local != null && casterPtr != null && (nint)casterPtr == local.Address)
                     RecordCast(header);
             }
         }
@@ -205,8 +205,8 @@ public unsafe class CastTracker : IDisposable
     }
 
     /// <summary>
-    /// 记录一次「出手」（无论是否造成伤害）。GCD 判定用引擎下发的 AnimationLock 粗判：
-    /// 值越大越可能是 GCD（复唱锁）。属启发式，可在本处调阈值。
+    /// 记录一次「出手」（无论是否造成伤害）。GCD 使用 Action 表的公共复唱组判定，
+    /// 不再把动画锁长度误当成 GCD 复唱时间。
     /// </summary>
     private void RecordCast(ActionEffectHandler.Header* header)
     {
@@ -214,7 +214,16 @@ public unsafe class CastTracker : IDisposable
             return;
         var castMs = (uint)(DateTime.Now - this.battleStart).TotalMilliseconds;
         float animLock = header->AnimationLock;
-        bool isGcd = animLock >= 1.2f;
+        bool isGcd = false;
+        try
+        {
+            var action = this.dataManager.GetExcelSheet<Action>()?.GetRow(header->ActionId);
+            isGcd = action != null && action.Value.CooldownGroup == 58;
+        }
+        catch
+        {
+            // 表查询失败时保留该次出手，但不猜测它属于 GCD。
+        }
         lock (this.lockObj)
         {
             if (!this.actionLog!.ContainsKey(0))
@@ -229,9 +238,8 @@ public unsafe class CastTracker : IDisposable
 
     public BattleView? GetCurrentView()
     {
-        CastSession? c;
-        lock (this.lockObj) c = this.current;
-        return c == null ? null : ToView(c, "（实时）");
+        lock (this.lockObj)
+            return this.current == null ? null : ToView(this.current, "（实时）", true);
     }
 
     public List<BattleView> GetViewList()
@@ -239,8 +247,8 @@ public unsafe class CastTracker : IDisposable
         var list = new List<BattleView>();
         lock (this.lockObj)
         {
-            if (this.current != null) list.Add(ToView(this.current, "（实时）"));
-            foreach (var h in this.history) list.Add(ToView(h, ""));
+            if (this.current != null) list.Add(ToView(this.current, "（实时）", true));
+            foreach (var h in this.history) list.Add(ToView(h, "", false));
         }
         return list;
     }
@@ -250,11 +258,11 @@ public unsafe class CastTracker : IDisposable
         lock (this.lockObj)
         {
             var h = this.history.FirstOrDefault(x => x.Id == id);
-            return h == null ? null : ToView(h, "");
+            return h == null ? null : ToView(h, "", false);
         }
     }
 
-    private BattleView ToView(CastSession s, string prefix)
+    private BattleView ToView(CastSession s, string prefix, bool isCurrent)
     {
         string label = $"{prefix}{(string.IsNullOrEmpty(s.JobName) ? "未知职业" : s.JobName)} @ " +
                        $"{(string.IsNullOrEmpty(s.ZoneName) ? "未知区域" : s.ZoneName)} · {s.CastCount}出手";
@@ -263,8 +271,8 @@ public unsafe class CastTracker : IDisposable
             Id = s.Id,
             Label = label,
             LocalName = s.LocalName,
-            DurationSec = s.DurationSec,
-            ActionLog = s.ActionLog,
+            DurationSec = isCurrent ? Math.Max(1, (DateTime.Now - this.battleStart).TotalSeconds) : s.DurationSec,
+            ActionLog = CloneActionLog(s.ActionLog),
         };
     }
 
@@ -306,13 +314,36 @@ public unsafe class CastTracker : IDisposable
         {
             Directory.CreateDirectory(this.configDir);
             List<CastSession> copy;
-            lock (this.lockObj) copy = this.history.ToList();
-            File.WriteAllText(Path.Combine(this.configDir, "sessions.json"),
-                JsonConvert.SerializeObject(copy, Formatting.Indented));
+            lock (this.lockObj) copy = this.history.Select(CloneSession).ToList();
+            var path = Path.Combine(this.configDir, "sessions.json");
+            var temp = path + ".tmp";
+            File.WriteAllText(temp, JsonConvert.SerializeObject(copy, Formatting.Indented));
+            File.Move(temp, path, true);
         }
         catch (Exception ex)
         {
             this.log.Error(ex, "[旋转教练] 保存历史失败。");
         }
     }
+
+    private static CastSession CloneSession(CastSession source) => new()
+    {
+        Id = source.Id,
+        LocalName = source.LocalName,
+        JobName = source.JobName,
+        ZoneName = source.ZoneName,
+        DurationSec = source.DurationSec,
+        ActionLog = CloneActionLog(source.ActionLog),
+    };
+
+    private static Dictionary<uint, List<ActionCast>> CloneActionLog(Dictionary<uint, List<ActionCast>> source)
+        => source.ToDictionary(
+            entry => entry.Key,
+            entry => entry.Value.Select(cast => new ActionCast
+            {
+                TimeMs = cast.TimeMs,
+                ActionId = cast.ActionId,
+                AnimLock = cast.AnimLock,
+                IsGcd = cast.IsGcd,
+            }).ToList());
 }

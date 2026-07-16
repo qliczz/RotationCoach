@@ -3,7 +3,7 @@
   <!-- Project settings -->
   <PropertyGroup>
     <Name>旋转教练</Name>
-    <Version>1.0.0.0</Version>
+    <Version>1.1.0.0</Version>
     <Author>斯温</Author>
     <RepoUrl>https://github.com/qliczz/RotationCoach</RepoUrl>
     <Punchline>旋转教练</Punchline>
@@ -14,7 +14,7 @@
 
   <!-- Build settings -->
   <PropertyGroup>
-    <OutputPath>..\bin\</OutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
@@ -25,4 +25,7 @@
   <PropertyGroup>
     <Use_Dalamud_FFXIVClientStructs>true</Use_Dalamud_FFXIVClientStructs>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="tests\**\*.cs" />
+  </ItemGroup>
 </Project>
