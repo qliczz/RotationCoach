@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Verify tag matches project version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content "RotationCoach.csproj"
+          $version = $project.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match project version v$version"
+          }
+
+      - name: Download Dalamud API 15
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/goatcorp/dalamud-distrib/main/api15/latest.zip" -OutFile dalamud.zip
+          Expand-Archive -Path dalamud.zip -DestinationPath dalamud -Force
+          "DALAMUD_HOME=$PWD\dalamud" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Build
+        run: dotnet build RotationCoach.csproj -c Release
+
+      - name: Run logic tests
+        run: dotnet run --project tests/LogicTests/LogicTests.csproj -c Release
+
+      - name: Prepare release asset
+        shell: pwsh
+        run: Copy-Item "bin/Release/RotationCoach/latest.zip" "RotationCoach.zip" -Force
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: RotationCoach.zip
+          generate_release_notes: true
